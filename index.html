@@ -87,6 +87,38 @@
 
     select:focus { border-color: var(--green); }
 
+    input[type="email"] {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      outline: none;
+      width: 100%;
+    }
+
+    input[type="email"]:focus { border-color: var(--green); }
+    input[type="email"]::placeholder { color: var(--muted); }
+
+    #email-btn {
+      background: transparent;
+      color: var(--green);
+      border: 1px solid var(--green);
+      border-radius: 8px;
+      padding: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: all 0.15s;
+      display: none;
+    }
+
+    #email-btn:hover { background: var(--green); color: var(--bg); }
+
     .slider-wrap {
       display: flex;
       align-items: center;
@@ -388,7 +420,13 @@
     </div>
   </div>
 
+  <div class="field">
+    <label for="rep-email">Rep Email</label>
+    <input type="email" id="rep-email" placeholder="rep@ozxpress.com" autocomplete="off" />
+  </div>
+
   <button id="generate-btn">Generate Route</button>
+  <button id="email-btn" onclick="emailRoute()">&#9993; Email Route to Rep</button>
 </aside>
 
 <!-- ── MAIN ── -->
@@ -599,6 +637,37 @@
     });
   }
 
+  // ── email route via mailto
+  function emailRoute() {
+    const email = document.getElementById('rep-email').value.trim();
+    if (!email) { alert('Please enter the rep\'s email address.'); return; }
+
+    const neighborhood = document.getElementById('neighborhood').value;
+    const rep = document.getElementById('sales-rep').value;
+    const startTime = document.getElementById('start-time').value;
+
+    const subject = `Your B2B Route — ${neighborhood} (${new Date().toLocaleDateString('en-US', {weekday:'long', month:'short', day:'numeric'})})`;
+
+    let body = `Hi ${rep},\n\nHere is your B2B sales route for today:\n`;
+    body += `📍 ${neighborhood}  |  Start: ${startTime}\n`;
+    body += `─────────────────────────────────\n\n`;
+
+    currentStops.forEach((stop, i) => {
+      const time = stopTime(startTime, i);
+      const tier = Number(stop.tier) || 1;
+      body += `STOP ${String(i+1).padStart(2,'0')} — ${time}\n`;
+      body += `${stop.name}\n`;
+      body += `${stop.address}\n`;
+      body += `Type: ${stop.type}  |  Tier ${tier}\n`;
+      body += `Pitch: "${stop.pitch}"\n\n`;
+    });
+
+    body += `─────────────────────────────────\n`;
+    body += `Good luck out there!\n\noz-xpress × FOXinGREEN`;
+
+    window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }
+
   // ── generate
   document.getElementById('generate-btn').addEventListener('click', async () => {
     const neighborhood = document.getElementById('neighborhood').value;
@@ -648,6 +717,7 @@
       currentStops = stops;
       loading.style.display = 'none';
       renderCards(stops, neighborhood, startTime, rep);
+      document.getElementById('email-btn').style.display = 'block';
       loadMapsScript();
 
     } catch (err) {
