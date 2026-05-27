@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>oz-xpress × FOXinGREEN — Route Builder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0e0f0d;
+      --surface: #161713;
+      --border: #252620;
+      --green: #b8f04a;
+      --green-dim: #8ab535;
+      --text: #e8e9e2;
+      --muted: #6b6d62;
+      --tier1: #b8f04a;
+      --tier2: #4ab8f0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── SIDEBAR ── */
+    #sidebar {
+      width: 260px;
+      min-width: 260px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 28px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    #sidebar h1 {
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      color: var(--green);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      line-height: 1.4;
+    }
+
+    #sidebar h1 span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 2px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    input[type="password"],
+    select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      outline: none;
+      width: 100%;
+      appearance: none;
+    }
+
+    input[type="password"]:focus,
+    select:focus {
+      border-color: var(--green);
+    }
+
+    .slider-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    #stops-val {
+      font-family: 'DM Mono', monospace;
+      font-size: 14px;
+      color: var(--green);
+      min-width: 18px;
+      text-align: right;
+    }
+
+    #generate-btn {
+      margin-top: auto;
+      background: var(--green);
+      color: var(--bg);
+      border: none;
+      border-radius: 8px;
+      padding: 12px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: background 0.15s;
+    }
+
+    #generate-btn:hover { background: #ceff5e; }
+    #generate-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+
+    /* ── MAIN ── */
+    #main {
+      flex: 1;
+      padding: 32px 36px;
+      overflow-y: auto;
+    }
+
+    #main-header {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    #main-header h2 {
+      font-family: 'DM Mono', monospace;
+      font-size: 15px;
+      color: var(--text);
+    }
+
+    #route-meta {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    #cards {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* empty / error states */
+    #empty-state {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 60vh;
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.8;
+    }
+
+    #empty-state.error { color: #f04a4a; }
+
+    /* loading */
+    #loading {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      height: 60vh;
+      gap: 10px;
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      color: var(--green);
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--green);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* stop card */
+    .stop-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+      display: grid;
+      grid-template-columns: 40px 1fr auto;
+      gap: 0 16px;
+      align-items: start;
+    }
+
+    .stop-num {
+      font-family: 'DM Mono', monospace;
+      font-size: 22px;
+      font-weight: 500;
+      color: var(--muted);
+      line-height: 1;
+      padding-top: 2px;
+    }
+
+    .stop-body { display: flex; flex-direction: column; gap: 5px; }
+
+    .stop-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .stop-address {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .stop-bio {
+      font-size: 13px;
+      color: #a0a196;
+      line-height: 1.55;
+      margin-top: 4px;
+    }
+
+    .stop-pitch {
+      font-size: 13px;
+      font-style: italic;
+      color: var(--green-dim);
+      margin-top: 2px;
+    }
+
+    .stop-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      min-width: 80px;
+    }
+
+    .stop-time {
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .tier-badge {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      font-weight: 500;
+      padding: 3px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .tier-1 {
+      background: rgba(184, 240, 74, 0.12);
+      color: var(--tier1);
+      border: 1px solid rgba(184, 240, 74, 0.25);
+    }
+
+    .tier-2 {
+      background: rgba(74, 184, 240, 0.12);
+      color: var(--tier2);
+      border: 1px solid rgba(74, 184, 240, 0.25);
+    }
+
+    .stop-type {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── SIDEBAR ── -->
+<aside id="sidebar">
+  <h1>oz-xpress<br/>× FOXinGREEN<span>Manhattan B2B Route Builder</span></h1>
+
+  <div class="field">
+    <label for="api-key">Anthropic API Key</label>
+    <input type="password" id="api-key" placeholder="sk-ant-..." autocomplete="off" />
+  </div>
+
+  <div class="field">
+    <label for="neighborhood">Neighborhood</label>
+    <select id="neighborhood">
+      <option value="SoHo/NoLita">SoHo / NoLita</option>
+      <option value="Lower East Side/Canal St">Lower East Side / Canal St</option>
+      <option value="Chelsea">Chelsea</option>
+      <option value="Flatiron/Union Square">Flatiron / Union Square</option>
+      <option value="Upper East Side">Upper East Side</option>
+      <option value="Upper West Side">Upper West Side</option>
+      <option value="Midtown">Midtown</option>
+      <option value="Harlem">Harlem</option>
+      <option value="Washington Heights">Washington Heights</option>
+      <option value="TriBeCa/Financial District">TriBeCa / Financial District</option>
+      <option value="East Village/Alphabet City">East Village / Alphabet City</option>
+      <option value="West Village/Greenwich Village">West Village / Greenwich Village</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label for="sales-rep">Sales Rep</label>
+    <select id="sales-rep">
+      <option value="Rep 1">Rep 1</option>
+      <option value="Rep 2">Rep 2</option>
+      <option value="Rep 3">Rep 3</option>
+      <option value="Rep 4">Rep 4</option>
+      <option value="Rep 5">Rep 5</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label for="start-time">Start Time</label>
+    <select id="start-time">
+      <option value="9:00 AM">9:00 AM</option>
+      <option value="10:00 AM">10:00 AM</option>
+      <option value="11:00 AM">11:00 AM</option>
+      <option value="2:00 PM">2:00 PM</option>
+      <option value="3:00 PM">3:00 PM</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label for="stops">Stops: <span id="stops-val">7</span></label>
+    <div class="slider-wrap">
+      <input type="range" id="stops" min="5" max="10" value="7" />
+    </div>
+  </div>
+
+  <button id="generate-btn">Generate Route</button>
+</aside>
+
+<!-- ── MAIN ── -->
+<main id="main">
+  <div id="main-header">
+    <h2>Route</h2>
+    <span id="route-meta"></span>
+  </div>
+
+  <div id="loading"><div class="spinner"></div> Building route…</div>
+
+  <div id="cards">
+    <div id="empty-state">Configure the route on the left<br/>then hit Generate.</div>
+  </div>
+</main>
+
+<script>
+  // ── localStorage persistence for API key
+  const keyInput = document.getElementById('api-key');
+  keyInput.value = localStorage.getItem('ozx_api_key') || '';
+  keyInput.addEventListener('input', () => {
+    localStorage.setItem('ozx_api_key', keyInput.value.trim());
+  });
+
+  // ── stops slider label
+  const stopsSlider = document.getElementById('stops');
+  const stopsVal = document.getElementById('stops-val');
+  stopsSlider.addEventListener('input', () => { stopsVal.textContent = stopsSlider.value; });
+
+  // ── time arithmetic (25 min per stop)
+  function addMinutes(timeStr, mins) {
+    const [time, period] = timeStr.split(' ');
+    let [h, m] = time.split(':').map(Number);
+    if (period === 'PM' && h !== 12) h += 12;
+    if (period === 'AM' && h === 12) h = 0;
+    const total = h * 60 + m + mins;
+    let nh = Math.floor(total / 60) % 24;
+    const nm = total % 60;
+    const np = nh >= 12 ? 'PM' : 'AM';
+    if (nh > 12) nh -= 12;
+    if (nh === 0) nh = 12;
+    return `${nh}:${String(nm).padStart(2, '0')} ${np}`;
+  }
+
+  function stopTime(startStr, index) {
+    let t = startStr;
+    for (let i = 0; i < index; i++) t = addMinutes(t, 25);
+    return t;
+  }
+
+  // ── extract JSON array from Claude response (handles markdown fences)
+  function extractJson(text) {
+    const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenced) return JSON.parse(fenced[1].trim());
+    const arrMatch = text.match(/\[[\s\S]*\]/);
+    if (arrMatch) return JSON.parse(arrMatch[0]);
+    return JSON.parse(text.trim());
+  }
+
+  // ── render cards
+  function renderCards(stops, neighborhood, startTime, rep) {
+    const cards = document.getElementById('cards');
+    cards.innerHTML = '';
+    document.getElementById('route-meta').textContent =
+      `${neighborhood} · ${rep} · ${stops.length} stops from ${startTime}`;
+
+    stops.forEach((stop, i) => {
+      const time = stopTime(startTime, i);
+      const tier = Number(stop.tier) || 1;
+      const tierLabel = tier === 1 ? 'Tier 1' : 'Tier 2';
+
+      const card = document.createElement('div');
+      card.className = 'stop-card';
+      card.innerHTML = `
+        <div class="stop-num">${String(i + 1).padStart(2, '0')}</div>
+        <div class="stop-body">
+          <div class="stop-name">${stop.name || 'Unknown'}</div>
+          <div class="stop-address">${stop.address || ''}</div>
+          <div class="stop-type">${stop.type || ''}</div>
+          <div class="stop-bio">${stop.bio || ''}</div>
+          <div class="stop-pitch">"${stop.pitch || ''}"</div>
+        </div>
+        <div class="stop-right">
+          <div class="stop-time">${time}</div>
+          <span class="tier-badge tier-${tier}">${tierLabel}</span>
+        </div>
+      `;
+      cards.appendChild(card);
+    });
+  }
+
+  // ── generate
+  document.getElementById('generate-btn').addEventListener('click', async () => {
+    const apiKey = keyInput.value.trim();
+    if (!apiKey || !apiKey.startsWith('sk-ant-')) {
+      alert('Please enter a valid Anthropic API key (sk-ant-…)');
+      return;
+    }
+
+    const neighborhood = document.getElementById('neighborhood').value;
+    const rep = document.getElementById('sales-rep').value;
+    const startTime = document.getElementById('start-time').value;
+    const numStops = parseInt(stopsSlider.value);
+
+    const btn = document.getElementById('generate-btn');
+    const loading = document.getElementById('loading');
+    const cards = document.getElementById('cards');
+
+    btn.disabled = true;
+    loading.style.display = 'flex';
+    cards.innerHTML = '';
+
+    try {
+      const payload = {
+        model: 'claude-opus-4-5',
+        max_tokens: 2048,
+        system: 'You are a NYC B2B sales route planner for oz-xpress same-day van delivery. Return ONLY valid JSON array, no markdown.',
+        messages: [{
+          role: 'user',
+          content: `Generate ${numStops} B2B sales stops in ${neighborhood}, Manhattan. Each stop should be a real-feeling business. Return a JSON array where each object has: name (string), address (string with real-feeling NYC street address in ${neighborhood}), type (string, business category), tier (1 for furniture/appliance/mattress retailers or 2 for thrift/decor/medical suppliers), bio (string, 2 sentences about the business), pitch (string, 1 sentence sales pitch for oz-xpress same-day delivery). Return only the JSON array.`
+        }]
+      };
+
+      const res = await fetch('/.netlify/functions/claude', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        throw new Error(data.error?.message || data.error || `HTTP ${res.status}`);
+      }
+
+      const text = data.content?.[0]?.text || '';
+      const stops = extractJson(text);
+
+      if (!Array.isArray(stops) || stops.length === 0) {
+        throw new Error('No stops returned from Claude.');
+      }
+
+      loading.style.display = 'none';
+      renderCards(stops, neighborhood, startTime, rep);
+
+    } catch (err) {
+      loading.style.display = 'none';
+      cards.innerHTML = `<div id="empty-state" class="error">Error: ${err.message}</div>`;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
