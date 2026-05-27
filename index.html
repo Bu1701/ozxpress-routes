@@ -72,7 +72,6 @@
       letter-spacing: 0.06em;
     }
 
-    input[type="password"],
     select {
       background: var(--bg);
       border: 1px solid var(--border);
@@ -86,7 +85,6 @@
       appearance: none;
     }
 
-    input[type="password"]:focus,
     select:focus {
       border-color: var(--green);
     }
@@ -299,11 +297,6 @@
   <h1>oz-xpress<br/>× FOXinGREEN<span>Manhattan B2B Route Builder</span></h1>
 
   <div class="field">
-    <label for="api-key">Anthropic API Key</label>
-    <input type="password" id="api-key" placeholder="sk-ant-..." autocomplete="off" />
-  </div>
-
-  <div class="field">
     <label for="neighborhood">Neighborhood</label>
     <select id="neighborhood">
       <option value="SoHo/NoLita">SoHo / NoLita</option>
@@ -368,13 +361,6 @@
 </main>
 
 <script>
-  // ── localStorage persistence for API key
-  const keyInput = document.getElementById('api-key');
-  keyInput.value = localStorage.getItem('ozx_api_key') || '';
-  keyInput.addEventListener('input', () => {
-    localStorage.setItem('ozx_api_key', keyInput.value.trim());
-  });
-
   // ── stops slider label
   const stopsSlider = document.getElementById('stops');
   const stopsVal = document.getElementById('stops-val');
@@ -444,12 +430,6 @@
 
   // ── generate
   document.getElementById('generate-btn').addEventListener('click', async () => {
-    const apiKey = keyInput.value.trim();
-    if (!apiKey || !apiKey.startsWith('sk-ant-')) {
-      alert('Please enter a valid Anthropic API key (sk-ant-…)');
-      return;
-    }
-
     const neighborhood = document.getElementById('neighborhood').value;
     const rep = document.getElementById('sales-rep').value;
     const startTime = document.getElementById('start-time').value;
@@ -477,8 +457,7 @@
       const res = await fetch('/.netlify/functions/claude', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(payload)
       });

@@ -2,9 +2,9 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' };
   }
-  const apiKey = event.headers['x-api-key'];
-  if (!apiKey || !apiKey.startsWith('sk-ant-')) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Invalid API key' }) };
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return { statusCode: 500, body: JSON.stringify({ error: 'API key not configured' }) };
   }
   try {
     const body = JSON.parse(event.body);
