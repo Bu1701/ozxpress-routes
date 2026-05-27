@@ -85,9 +85,7 @@
       appearance: none;
     }
 
-    select:focus {
-      border-color: var(--green);
-    }
+    select:focus { border-color: var(--green); }
 
     .slider-wrap {
       display: flex;
@@ -132,13 +130,16 @@
       flex: 1;
       padding: 32px 36px;
       overflow-y: auto;
+      display: flex;
+      flex-direction: column;
     }
 
     #main-header {
       display: flex;
-      align-items: baseline;
-      gap: 12px;
+      align-items: center;
+      gap: 16px;
       margin-bottom: 28px;
+      flex-shrink: 0;
     }
 
     #main-header h2 {
@@ -151,6 +152,39 @@
       font-family: 'DM Mono', monospace;
       font-size: 12px;
       color: var(--muted);
+      flex: 1;
+    }
+
+    /* ── VIEW TABS ── */
+    .view-tabs {
+      display: none;
+      gap: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 3px;
+    }
+
+    .view-tabs.visible { display: flex; }
+
+    .tab-btn {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      padding: 5px 12px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: transparent;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      transition: all 0.15s;
+    }
+
+    .tab-btn.active {
+      background: var(--green);
+      color: var(--bg);
+      font-weight: 500;
     }
 
     #cards {
@@ -158,6 +192,17 @@
       flex-direction: column;
       gap: 14px;
     }
+
+    #map-view {
+      display: none;
+      flex: 1;
+      min-height: 600px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    #map-view.visible { display: block; }
 
     /* empty / error states */
     #empty-state {
@@ -351,6 +396,10 @@
   <div id="main-header">
     <h2>Route</h2>
     <span id="route-meta"></span>
+    <div class="view-tabs" id="view-tabs">
+      <button class="tab-btn active" id="tab-list" onclick="switchTab('list')">List</button>
+      <button class="tab-btn" id="tab-map" onclick="switchTab('map')">Map</button>
+    </div>
   </div>
 
   <div id="loading"><div class="spinner"></div> Building route…</div>
@@ -358,15 +407,139 @@
   <div id="cards">
     <div id="empty-state">Configure the route on the left<br/>then hit Generate.</div>
   </div>
+
+  <div id="map-view"></div>
 </main>
 
 <script>
+  const GMAPS_KEY = 'AIzaSyAKn-FmKki_ULQ43mRE2t5FU_UOVqy9T_k';
+  let mapInstance = null;
+  let geocoder = null;
+  let currentStops = [];
+
+  // ── load Google Maps script once
+  function loadMapsScript() {
+    if (document.getElementById('gmaps-script')) return;
+    const s = document.createElement('script');
+    s.id = 'gmaps-script';
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${GMAPS_KEY}&callback=onMapsReady`;
+    s.async = true;
+    document.head.appendChild(s);
+  }
+
+  window.onMapsReady = function() {
+    geocoder = new google.maps.Geocoder();
+  };
+
+  // ── dark map style
+  const darkStyle = [
+    { elementType: 'geometry', stylers: [{ color: '#161713' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#0e0f0d' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#6b6d62' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#252620' }] },
+    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#0e0f0d' }] },
+    { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#9ca5b3' }] },
+    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#2c2e28' }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0a0b09' }] },
+    { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#3d3d3d' }] },
+    { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+    { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+  ];
+
+  // ── tab switching
+  function switchTab(tab) {
+    document.getElementById('tab-list').classList.toggle('active', tab === 'list');
+    document.getElementById('tab-map').classList.toggle('active', tab === 'map');
+    document.getElementById('cards').style.display = tab === 'list' ? 'flex' : 'none';
+    const mapView = document.getElementById('map-view');
+    if (tab === 'map') {
+      mapView.classList.add('visible');
+      buildMap();
+    } else {
+      mapView.classList.remove('visible');
+    }
+  }
+
+  // ── build/refresh map with current stops
+  function buildMap() {
+    if (!geocoder || currentStops.length === 0) return;
+    const mapDiv = document.getElementById('map-view');
+
+    if (!mapInstance) {
+      mapInstance = new google.maps.Map(mapDiv, {
+        zoom: 14,
+        center: { lat: 40.7589, lng: -73.9851 },
+        styles: darkStyle,
+        disableDefaultUI: false,
+        zoomControl: true,
+        streetViewControl: false,
+        mapTypeControl: false,
+        fullscreenControl: true,
+      });
+    }
+
+    const bounds = new google.maps.LatLngBounds();
+    const routeCoords = [];
+    let resolved = 0;
+    const positions = new Array(currentStops.length).fill(null);
+
+    currentStops.forEach((stop, i) => {
+      geocoder.geocode({ address: stop.address + ', New York, NY' }, (results, status) => {
+        if (status === 'OK') {
+          const pos = results[0].geometry.location;
+          positions[i] = pos;
+          bounds.extend(pos);
+
+          // numbered marker
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
+            <path d="M16 0C7.163 0 0 7.163 0 16c0 12 16 24 16 24s16-12 16-24C32 7.163 24.837 0 16 0z" fill="#b8f04a"/>
+            <text x="16" y="20" text-anchor="middle" font-family="DM Mono,monospace" font-size="13" font-weight="bold" fill="#0e0f0d">${i + 1}</text>
+          </svg>`;
+
+          const marker = new google.maps.Marker({
+            position: pos,
+            map: mapInstance,
+            icon: { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg), scaledSize: new google.maps.Size(32, 40) },
+            title: `${i + 1}. ${stop.name}`,
+          });
+
+          const infoWindow = new google.maps.InfoWindow({
+            content: `<div style="font-family:DM Sans,sans-serif;font-size:13px;color:#0e0f0d;max-width:200px;">
+              <strong>${stop.name}</strong><br/>
+              <span style="font-size:11px;color:#555;">${stop.address}</span><br/>
+              <em style="font-size:12px;color:#5a8a1a;">${stop.pitch}</em>
+            </div>`
+          });
+
+          marker.addListener('click', () => infoWindow.open(mapInstance, marker));
+        }
+
+        resolved++;
+        if (resolved === currentStops.length) {
+          // draw route line in order
+          const ordered = positions.filter(p => p !== null);
+          if (ordered.length > 1) {
+            new google.maps.Polyline({
+              path: ordered,
+              geodesic: true,
+              strokeColor: '#b8f04a',
+              strokeOpacity: 0.6,
+              strokeWeight: 2,
+              map: mapInstance,
+            });
+          }
+          if (!bounds.isEmpty()) mapInstance.fitBounds(bounds);
+        }
+      });
+    });
+  }
+
   // ── stops slider label
   const stopsSlider = document.getElementById('stops');
   const stopsVal = document.getElementById('stops-val');
   stopsSlider.addEventListener('input', () => { stopsVal.textContent = stopsSlider.value; });
 
-  // ── time arithmetic (25 min per stop)
+  // ── time arithmetic
   function addMinutes(timeStr, mins) {
     const [time, period] = timeStr.split(' ');
     let [h, m] = time.split(':').map(Number);
@@ -387,7 +560,6 @@
     return t;
   }
 
-  // ── extract JSON array from Claude response (handles markdown fences)
   function extractJson(text) {
     const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (fenced) return JSON.parse(fenced[1].trim());
@@ -396,18 +568,17 @@
     return JSON.parse(text.trim());
   }
 
-  // ── render cards
   function renderCards(stops, neighborhood, startTime, rep) {
     const cards = document.getElementById('cards');
     cards.innerHTML = '';
     document.getElementById('route-meta').textContent =
       `${neighborhood} · ${rep} · ${stops.length} stops from ${startTime}`;
+    document.getElementById('view-tabs').classList.add('visible');
 
     stops.forEach((stop, i) => {
       const time = stopTime(startTime, i);
       const tier = Number(stop.tier) || 1;
       const tierLabel = tier === 1 ? 'Tier 1' : 'Tier 2';
-
       const card = document.createElement('div');
       card.className = 'stop-card';
       card.innerHTML = `
@@ -439,6 +610,13 @@
     const loading = document.getElementById('loading');
     const cards = document.getElementById('cards');
 
+    // reset map
+    mapInstance = null;
+    currentStops = [];
+    document.getElementById('map-view').classList.remove('visible');
+    document.getElementById('map-view').innerHTML = '';
+    switchTab('list');
+
     btn.disabled = true;
     loading.style.display = 'flex';
     cards.innerHTML = '';
@@ -456,27 +634,21 @@
 
       const res = await fetch('/.netlify/functions/claude', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
       const data = await res.json();
-
-      if (!res.ok || data.error) {
-        throw new Error(data.error?.message || data.error || `HTTP ${res.status}`);
-      }
+      if (!res.ok || data.error) throw new Error(data.error?.message || data.error || `HTTP ${res.status}`);
 
       const text = data.content?.[0]?.text || '';
       const stops = extractJson(text);
+      if (!Array.isArray(stops) || stops.length === 0) throw new Error('No stops returned from Claude.');
 
-      if (!Array.isArray(stops) || stops.length === 0) {
-        throw new Error('No stops returned from Claude.');
-      }
-
+      currentStops = stops;
       loading.style.display = 'none';
       renderCards(stops, neighborhood, startTime, rep);
+      loadMapsScript();
 
     } catch (err) {
       loading.style.display = 'none';
