@@ -59,11 +59,13 @@ Rep 1–5 (placeholder names — to be updated with real names)
 - 🟡 Persist generated routes (localStorage or Supabase)
 - 🟡 Custom domain setup
 
-## Deploy Process
-1. Edit files in `D:\ozxpress-routes\`
-2. `git add .` → `git commit -m "message"` → `git push`
-3. Netlify auto-deploys from master branch — live in ~30 seconds
+## Git Workflow (Standing Rules)
+- **No branches** — always work on master only
+- **Session start:** `git pull` before touching any file
+- **Session end:** review all changes, then `git add .` → `git commit -m "message"` → `git push`
+- Netlify auto-deploys from master — live in ~30 seconds
 
 ## Session Start Checklist
 1. Read this CLAUDE.md — you are now fully briefed
-2. Ask what we are working on today
+2. `git pull` — get latest before starting
+3. Ask what we are working on today
