@@ -454,6 +454,7 @@
   let mapInstance = null;
   let geocoder = null;
   let currentStops = [];
+  let currentNeighborhood = '', currentRep = '', currentStartTime = '';
 
   // ── load Google Maps script once
   function loadMapsScript() {
@@ -498,9 +499,32 @@
     }
   }
 
-  // ── build/refresh map with current stops
+  // ── add a numbered pin marker
+  function addNumberedMarker(pos, num, stop) {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
+      <path d="M16 0C7.163 0 0 7.163 0 16c0 12 16 24 16 24s16-12 16-24C32 7.163 24.837 0 16 0z" fill="#b8f04a"/>
+      <text x="16" y="20" text-anchor="middle" font-family="DM Mono,monospace" font-size="13" font-weight="bold" fill="#0e0f0d">${num}</text>
+    </svg>`;
+    const marker = new google.maps.Marker({
+      position: pos,
+      map: mapInstance,
+      icon: { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg), scaledSize: new google.maps.Size(32, 40) },
+      title: `${num}. ${stop.name}`,
+    });
+    const iw = new google.maps.InfoWindow({
+      content: `<div style="font-family:DM Sans,sans-serif;font-size:13px;color:#0e0f0d;max-width:200px;">
+        <strong>${stop.name}</strong><br/>
+        <span style="font-size:11px;color:#555;">${stop.address}</span><br/>
+        <em style="font-size:12px;color:#5a8a1a;">${stop.pitch}</em>
+      </div>`
+    });
+    marker.addListener('click', () => iw.open(mapInstance, marker));
+    window._mapMarkers.push(marker);
+  }
+
+  // ── build/refresh map with walking directions + optimized stop order
   function buildMap() {
-    if (!geocoder || currentStops.length === 0) return;
+    if (!window.google || currentStops.length === 0) return;
     const mapDiv = document.getElementById('map-view');
 
     if (!mapInstance) {
@@ -516,59 +540,69 @@
       });
     }
 
-    const bounds = new google.maps.LatLngBounds();
-    const routeCoords = [];
-    let resolved = 0;
-    const positions = new Array(currentStops.length).fill(null);
+    // clear previous markers and route
+    if (window._mapMarkers) window._mapMarkers.forEach(m => m.setMap(null));
+    window._mapMarkers = [];
+    if (window._dirRenderer) { window._dirRenderer.setMap(null); window._dirRenderer = null; }
 
-    currentStops.forEach((stop, i) => {
-      geocoder.geocode({ address: stop.address + ', New York, NY' }, (results, status) => {
+    // single stop fallback
+    if (currentStops.length < 2) {
+      geocoder.geocode({ address: currentStops[0].address + ', New York, NY' }, (res, status) => {
         if (status === 'OK') {
-          const pos = results[0].geometry.location;
-          positions[i] = pos;
-          bounds.extend(pos);
-
-          // numbered marker
-          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
-            <path d="M16 0C7.163 0 0 7.163 0 16c0 12 16 24 16 24s16-12 16-24C32 7.163 24.837 0 16 0z" fill="#b8f04a"/>
-            <text x="16" y="20" text-anchor="middle" font-family="DM Mono,monospace" font-size="13" font-weight="bold" fill="#0e0f0d">${i + 1}</text>
-          </svg>`;
-
-          const marker = new google.maps.Marker({
-            position: pos,
-            map: mapInstance,
-            icon: { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg), scaledSize: new google.maps.Size(32, 40) },
-            title: `${i + 1}. ${stop.name}`,
-          });
-
-          const infoWindow = new google.maps.InfoWindow({
-            content: `<div style="font-family:DM Sans,sans-serif;font-size:13px;color:#0e0f0d;max-width:200px;">
-              <strong>${stop.name}</strong><br/>
-              <span style="font-size:11px;color:#555;">${stop.address}</span><br/>
-              <em style="font-size:12px;color:#5a8a1a;">${stop.pitch}</em>
-            </div>`
-          });
-
-          marker.addListener('click', () => infoWindow.open(mapInstance, marker));
-        }
-
-        resolved++;
-        if (resolved === currentStops.length) {
-          // draw route line in order
-          const ordered = positions.filter(p => p !== null);
-          if (ordered.length > 1) {
-            new google.maps.Polyline({
-              path: ordered,
-              geodesic: true,
-              strokeColor: '#b8f04a',
-              strokeOpacity: 0.6,
-              strokeWeight: 2,
-              map: mapInstance,
-            });
-          }
-          if (!bounds.isEmpty()) mapInstance.fitBounds(bounds);
+          const pos = res[0].geometry.location;
+          addNumberedMarker(pos, 1, currentStops[0]);
+          mapInstance.setCenter(pos);
+          mapInstance.setZoom(15);
         }
       });
+      return;
+    }
+
+    const svc = new google.maps.DirectionsService();
+    const renderer = new google.maps.DirectionsRenderer({
+      map: mapInstance,
+      suppressMarkers: true,
+      polylineOptions: { strokeColor: '#b8f04a', strokeOpacity: 0.85, strokeWeight: 3 }
+    });
+    window._dirRenderer = renderer;
+
+    const toAddr = a => a + ', New York, NY';
+    const waypoints = currentStops.slice(1, -1).map(s => ({ location: toAddr(s.address), stopover: true }));
+
+    svc.route({
+      origin: toAddr(currentStops[0].address),
+      destination: toAddr(currentStops[currentStops.length - 1].address),
+      waypoints,
+      optimizeWaypoints: true,
+      travelMode: google.maps.TravelMode.WALKING,
+    }, (result, status) => {
+      if (status !== 'OK') {
+        console.error('Directions error:', status);
+        return;
+      }
+      renderer.setDirections(result);
+
+      // reorder stops based on Google's optimized waypoint order
+      const wpOrder = result.routes[0].waypoint_order;
+      const first = currentStops[0];
+      const last = currentStops[currentStops.length - 1];
+      const middle = currentStops.slice(1, -1);
+      currentStops = [first, ...wpOrder.map(i => middle[i]), last];
+
+      // place numbered markers at each stop
+      const legs = result.routes[0].legs;
+      const bounds = new google.maps.LatLngBounds();
+      legs.forEach((leg, i) => {
+        bounds.extend(leg.start_location);
+        addNumberedMarker(leg.start_location, i + 1, currentStops[i]);
+      });
+      const lastLeg = legs[legs.length - 1];
+      bounds.extend(lastLeg.end_location);
+      addNumberedMarker(lastLeg.end_location, currentStops.length, currentStops[currentStops.length - 1]);
+      mapInstance.fitBounds(bounds);
+
+      // re-render list cards in the new walking order
+      renderCards(currentStops, currentNeighborhood, currentStartTime, currentRep);
     });
   }
 
@@ -682,6 +716,8 @@
     // reset map
     mapInstance = null;
     currentStops = [];
+    window._mapMarkers = [];
+    window._dirRenderer = null;
     document.getElementById('map-view').classList.remove('visible');
     document.getElementById('map-view').innerHTML = '';
     switchTab('list');
@@ -715,6 +751,9 @@
       if (!Array.isArray(stops) || stops.length === 0) throw new Error('No stops returned from Claude.');
 
       currentStops = stops;
+      currentNeighborhood = neighborhood;
+      currentRep = rep;
+      currentStartTime = startTime;
       loading.style.display = 'none';
       renderCards(stops, neighborhood, startTime, rep);
       document.getElementById('email-btn').style.display = 'block';
