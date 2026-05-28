@@ -119,6 +119,18 @@
 
     #email-btn:hover { background: var(--green); color: var(--bg); }
 
+    #admin-link {
+      display: block;
+      text-align: center;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 6px 0;
+      letter-spacing: 0.04em;
+    }
+    #admin-link:hover { color: var(--green); }
+
     .slider-wrap {
       display: flex;
       align-items: center;
@@ -393,13 +405,7 @@
 
   <div class="field">
     <label for="sales-rep">Sales Rep</label>
-    <select id="sales-rep">
-      <option value="Rep 1">Rep 1</option>
-      <option value="Rep 2">Rep 2</option>
-      <option value="Rep 3">Rep 3</option>
-      <option value="Rep 4">Rep 4</option>
-      <option value="Rep 5">Rep 5</option>
-    </select>
+    <select id="sales-rep"></select>
   </div>
 
   <div class="field">
@@ -427,6 +433,7 @@
 
   <button id="generate-btn">Generate Route</button>
   <button id="email-btn" onclick="emailRoute()">&#9993; Email Route to Rep</button>
+  <a id="admin-link" href="admin.html">&#9881; Manage Reps</a>
 </aside>
 
 <!-- ── MAIN ── -->
@@ -712,6 +719,44 @@
 
     window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   }
+
+  // ── load reps from back office into dropdown
+  function loadReps() {
+    const select = document.getElementById('sales-rep');
+    let reps = [];
+    try { reps = JSON.parse(localStorage.getItem('ozxpress_reps')) || []; } catch {}
+    select.innerHTML = '';
+    if (reps.length === 0) {
+      // fallback to defaults if no reps configured yet
+      ['Rep 1','Rep 2','Rep 3','Rep 4','Rep 5'].forEach(name => {
+        const o = document.createElement('option');
+        o.value = o.textContent = name;
+        select.appendChild(o);
+      });
+    } else {
+      reps.forEach(r => {
+        const o = document.createElement('option');
+        o.value = r.name;
+        o.textContent = r.name;
+        o.dataset.email = r.email || '';
+        select.appendChild(o);
+      });
+    }
+  }
+  loadReps();
+
+  // auto-fill rep email when rep selection changes
+  document.getElementById('sales-rep').addEventListener('change', function() {
+    const selected = this.options[this.selectedIndex];
+    const emailInput = document.getElementById('rep-email');
+    if (selected.dataset.email) emailInput.value = selected.dataset.email;
+  });
+  // pre-fill on load
+  (function() {
+    const s = document.getElementById('sales-rep');
+    const e = document.getElementById('rep-email');
+    if (s.options[0]?.dataset.email) e.value = s.options[0].dataset.email;
+  })();
 
   // ── generate
   document.getElementById('generate-btn').addEventListener('click', async () => {
