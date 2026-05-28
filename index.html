@@ -119,6 +119,23 @@
 
     #email-btn:hover { background: var(--green); color: var(--bg); }
 
+    #copy-btn {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      width: 100%;
+      transition: all 0.15s;
+      display: none;
+    }
+    #copy-btn:hover { border-color: var(--muted); color: var(--text); }
+    #copy-btn.copied { border-color: var(--green); color: var(--green); }
+
     #admin-link {
       display: block;
       text-align: center;
@@ -433,6 +450,7 @@
 
   <button id="generate-btn">Generate Route</button>
   <button id="email-btn" onclick="emailRoute()">&#9993; Email Route to Rep</button>
+  <button id="copy-btn" onclick="copyRoute()">&#9112; Copy Route</button>
   <a id="admin-link" href="admin.html">&#9881; Manage Reps</a>
 </aside>
 
@@ -720,6 +738,42 @@
     window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   }
 
+  // ── copy route to clipboard
+  function copyRoute() {
+    if (currentStops.length === 0) return;
+
+    const neighborhood = currentNeighborhood;
+    const rep = currentRep;
+    const startTime = currentStartTime;
+
+    let text = `B2B ROUTE — ${neighborhood}\n`;
+    text += `Rep: ${rep}  |  Start: ${startTime}\n`;
+    text += `${'─'.repeat(36)}\n\n`;
+
+    currentStops.forEach((stop, i) => {
+      const time = stopTime(startTime, i);
+      const tier = Number(stop.tier) || 1;
+      text += `STOP ${String(i+1).padStart(2,'0')} — ${time}\n`;
+      text += `${stop.name}\n`;
+      text += `${stop.address}\n`;
+      text += `Type: ${stop.type}  |  Tier ${tier}\n`;
+      text += `Pitch: "${stop.pitch}"\n\n`;
+    });
+
+    text += `${'─'.repeat(36)}\n`;
+    text += `oz-xpress × FOXinGREEN`;
+
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('copy-btn');
+      btn.textContent = '✓ Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = '⊟ Copy Route';
+        btn.classList.remove('copied');
+      }, 2000);
+    });
+  }
+
   // ── load reps from back office into dropdown
   function loadReps() {
     const select = document.getElementById('sales-rep');
@@ -776,6 +830,8 @@
     window._dirRenderer = null;
     document.getElementById('map-view').classList.remove('visible');
     document.getElementById('map-view').innerHTML = '';
+    document.getElementById('copy-btn').style.display = 'none';
+    document.getElementById('copy-btn').classList.remove('copied');
     switchTab('list');
 
     btn.disabled = true;
@@ -813,6 +869,7 @@
       loading.style.display = 'none';
       renderCards(stops, neighborhood, startTime, rep);
       document.getElementById('email-btn').style.display = 'block';
+      document.getElementById('copy-btn').style.display = 'block';
       loadMapsScript();
 
     } catch (err) {
