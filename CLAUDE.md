@@ -65,6 +65,14 @@ Rep 1–5 (placeholder names — to be updated with real names)
 - **Session end:** review all changes, then `git add .` → `git commit -m "message"` → `git push`
 - Netlify auto-deploys from master — live in ~30 seconds
 
+## Dual-Push Setup (IMPORTANT)
+Every `git push` goes to **two remotes simultaneously**:
+1. `leifenberg/foxb2b` — the main repo (leifenberg is the owner, Bu1701 is collaborator)
+2. `Bu1701/ozxpress-routes` — Netlify is connected to this repo and auto-deploys from it
+
+This is already configured in the local git remotes — a single `git push` handles both.
+Do NOT change the remote setup.
+
 ## Session Start Checklist
 1. Read this CLAUDE.md — you are now fully briefed
 2. `git pull` — get latest before starting
