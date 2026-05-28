@@ -499,17 +499,28 @@
     }
   }
 
-  // ── add a numbered pin marker
+  // ── add a numbered circle marker
   function addNumberedMarker(pos, num, stop) {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
-      <path d="M16 0C7.163 0 0 7.163 0 16c0 12 16 24 16 24s16-12 16-24C32 7.163 24.837 0 16 0z" fill="#b8f04a"/>
-      <text x="16" y="20" text-anchor="middle" font-family="DM Mono,monospace" font-size="13" font-weight="bold" fill="#0e0f0d">${num}</text>
-    </svg>`;
     const marker = new google.maps.Marker({
       position: pos,
       map: mapInstance,
-      icon: { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg), scaledSize: new google.maps.Size(32, 40) },
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 14,
+        fillColor: '#b8f04a',
+        fillOpacity: 1,
+        strokeColor: '#0e0f0d',
+        strokeWeight: 1.5,
+      },
+      label: {
+        text: String(num),
+        color: '#0e0f0d',
+        fontSize: '11px',
+        fontWeight: 'bold',
+        fontFamily: 'DM Mono, monospace',
+      },
       title: `${num}. ${stop.name}`,
+      zIndex: 10,
     });
     const iw = new google.maps.InfoWindow({
       content: `<div style="font-family:DM Sans,sans-serif;font-size:13px;color:#0e0f0d;max-width:200px;">
