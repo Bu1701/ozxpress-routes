@@ -9,7 +9,7 @@ Single-page app that uses the Anthropic Claude API (via a Netlify function proxy
 | | Live |
 |---|---|
 | Netlify Site | ozxpress-routes.netlify.app |
-| GitHub Repo | https://github.com/Bu1701/ozxpress-routes |
+| GitHub Repo | https://github.com/leifenberg/foxb2b |
 | Netlify Account | mike-dtt479k's team |
 
 Deploys automatically from GitHub (master branch).
