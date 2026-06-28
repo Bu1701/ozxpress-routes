@@ -7,6 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -394,9 +396,42 @@
       font-size: 11px;
       color: var(--muted);
     }
+
+    /* ── auth gate overlay ── */
+    #auth-gate {
+      position: fixed; inset: 0; z-index: 9999;
+      background: var(--bg); display: flex; align-items: center; justify-content: center;
+      font-family: 'DM Mono', monospace; font-size: 13px; color: var(--green);
+      gap: 10px;
+    }
+
+    /* ── identity block in sidebar ── */
+    #identity {
+      border-top: 1px solid var(--border);
+      padding-top: 14px; margin-top: 4px;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    #identity .who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    #identity .who .name {
+      font-size: 13px; font-weight: 600; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #identity .who .role {
+      font-family: 'DM Mono', monospace; font-size: 10px; color: var(--green);
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    #logout-btn {
+      background: transparent; border: 1px solid var(--border); color: var(--muted);
+      border-radius: 6px; padding: 6px 10px; font-family: 'DM Mono', monospace;
+      font-size: 11px; cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+    }
+    #logout-btn:hover { border-color: var(--red, #f04a4a); color: var(--red, #f04a4a); }
   </style>
 </head>
 <body>
+
+<!-- ── AUTH GATE OVERLAY (removed once login is verified) ── -->
+<div id="auth-gate"><div class="spinner"></div> Checking login…</div>
 
 <!-- ── SIDEBAR ── -->
 <aside id="sidebar">
@@ -451,7 +486,15 @@
   <button id="generate-btn">Generate Route</button>
   <button id="email-btn" onclick="emailRoute()">&#9993; Email Route to Rep</button>
   <button id="copy-btn" onclick="copyRoute()">&#9112; Copy Route</button>
-  <a id="admin-link" href="admin.html">&#9881; Manage Reps</a>
+  <a id="admin-link" href="admin.html" style="display:none">&#9881; Back Office</a>
+
+  <div id="identity">
+    <div class="who">
+      <span class="name" id="id-name">—</span>
+      <span class="role" id="id-role"></span>
+    </div>
+    <button id="logout-btn" onclick="ozAuth.signOut()">Log out</button>
+  </div>
 </aside>
 
 <!-- ── MAIN ── -->
@@ -774,42 +817,64 @@
     });
   }
 
-  // ── load reps from back office into dropdown
-  function loadReps() {
+  // ── identity + rep loading (Supabase auth) ───────────────────────────────
+  const repField = document.getElementById('sales-rep').closest('.field');
+
+  function addRepOption(name, email) {
     const select = document.getElementById('sales-rep');
-    let reps = [];
-    try { reps = JSON.parse(localStorage.getItem('ozxpress_reps')) || []; } catch {}
+    const o = document.createElement('option');
+    o.value = name; o.textContent = name; o.dataset.email = email || '';
+    select.appendChild(o);
+  }
+
+  async function loadRepsForAdmin() {
+    const select = document.getElementById('sales-rep');
     select.innerHTML = '';
-    if (reps.length === 0) {
-      // fallback to defaults if no reps configured yet
-      ['Rep 1','Rep 2','Rep 3','Rep 4','Rep 5'].forEach(name => {
-        const o = document.createElement('option');
-        o.value = o.textContent = name;
-        select.appendChild(o);
-      });
+    const { data, error } = await ozAuth.client
+      .from('reps').select('name,email').eq('active', true).order('name');
+    if (error || !data || data.length === 0) {
+      addRepOption(window._me.name, window._me.email);   // fall back to self
     } else {
-      reps.forEach(r => {
-        const o = document.createElement('option');
-        o.value = r.name;
-        o.textContent = r.name;
-        o.dataset.email = r.email || '';
-        select.appendChild(o);
-      });
+      data.forEach(r => addRepOption(r.name, r.email));
+    }
+    const first = select.options[0];
+    if (first && first.dataset.email) document.getElementById('rep-email').value = first.dataset.email;
+  }
+
+  function applyIdentity(me) {
+    document.getElementById('id-name').textContent = me.name;
+    document.getElementById('id-role').textContent = me.role;
+
+    if (me.role === 'admin') {
+      document.getElementById('admin-link').style.display = 'block';
+      repField.style.display = '';            // admin chooses which rep
+      loadRepsForAdmin();
+    } else {
+      // salesperson — locked to their own identity
+      const select = document.getElementById('sales-rep');
+      select.innerHTML = '';
+      addRepOption(me.name, me.email);
+      select.value = me.name;
+      repField.style.display = 'none';        // hide the rep picker
+      document.getElementById('rep-email').value = me.email || '';
     }
   }
-  loadReps();
 
-  // auto-fill rep email when rep selection changes
-  document.getElementById('sales-rep').addEventListener('change', function() {
+  // auto-fill rep email when the admin changes the rep selection
+  document.getElementById('sales-rep').addEventListener('change', function () {
     const selected = this.options[this.selectedIndex];
     const emailInput = document.getElementById('rep-email');
-    if (selected.dataset.email) emailInput.value = selected.dataset.email;
+    if (selected && selected.dataset.email) emailInput.value = selected.dataset.email;
   });
-  // pre-fill on load
-  (function() {
-    const s = document.getElementById('sales-rep');
-    const e = document.getElementById('rep-email');
-    if (s.options[0]?.dataset.email) e.value = s.options[0].dataset.email;
+
+  // ── AUTH GATE: app stays covered until we know who you are ──
+  (async function () {
+    const me = await ozAuth.requireAuth(null);
+    if (!me) return;                          // requireAuth redirected to login
+    window._me = me;
+    applyIdentity(me);
+    const gate = document.getElementById('auth-gate');
+    if (gate) gate.remove();
   })();
 
   // ── generate

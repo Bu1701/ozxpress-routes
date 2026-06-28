@@ -7,476 +7,213 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --bg: #0e0f0d;
-      --surface: #161713;
-      --border: #252620;
-      --green: #b8f04a;
-      --green-dim: #8ab535;
-      --text: #e8e9e2;
-      --muted: #6b6d62;
-      --red: #f04a4a;
-      --red-dim: #c03a3a;
+      --bg: #0e0f0d; --surface: #161713; --border: #252620;
+      --green: #b8f04a; --green-dim: #8ab535; --text: #e8e9e2;
+      --muted: #6b6d62; --red: #f04a4a;
     }
+    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'DM Sans', sans-serif;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    #auth-gate {
+      position: fixed; inset: 0; z-index: 9999; background: var(--bg);
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      font-family: 'DM Mono', monospace; font-size: 13px; color: var(--green);
     }
+    .spinner {
+      width: 18px; height: 18px; border: 2px solid var(--border);
+      border-top-color: var(--green); border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── PIN SCREEN ── */
-    #pin-screen {
-      width: 340px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 40px 32px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 24px;
-    }
-
-    #pin-screen .logo {
-      font-family: 'DM Mono', monospace;
-      font-size: 12px;
-      color: var(--green);
-      letter-spacing: 0.08em;
-      text-align: center;
-      text-transform: uppercase;
-    }
-
-    #pin-screen h2 {
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--text);
-    }
-
-    #pin-input {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px 16px;
-      color: var(--text);
-      font-family: 'DM Mono', monospace;
-      font-size: 22px;
-      letter-spacing: 0.3em;
-      text-align: center;
-      outline: none;
-    }
-    #pin-input:focus { border-color: var(--green); }
-
-    #pin-error {
-      color: var(--red);
-      font-size: 13px;
-      min-height: 18px;
-    }
-
-    /* ── MAIN LAYOUT ── */
-    #app {
-      display: none;
-      width: 100%;
-      max-width: 820px;
-      margin: 0 auto;
-      padding: 40px 24px;
-      flex-direction: column;
-      gap: 32px;
-    }
+    #app { display: none; max-width: 880px; margin: 0 auto; padding: 36px 24px; flex-direction: column; gap: 28px; }
     #app.visible { display: flex; }
 
-    /* ── TOP BAR ── */
-    .top-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
+    .top-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
     .top-bar .logo {
-      font-family: 'DM Mono', monospace;
-      font-size: 11px;
-      color: var(--green);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      line-height: 1.5;
+      font-family: 'DM Mono', monospace; font-size: 11px; color: var(--green);
+      letter-spacing: 0.08em; text-transform: uppercase; line-height: 1.5;
     }
     .top-bar .logo span { color: var(--muted); display: block; }
-    .top-bar a {
-      font-size: 13px;
-      color: var(--muted);
-      text-decoration: none;
-    }
+    .top-bar .right { display: flex; align-items: center; gap: 14px; }
+    .top-bar a { font-size: 13px; color: var(--muted); text-decoration: none; }
     .top-bar a:hover { color: var(--green); }
-
-    /* ── SECTION ── */
-    .section {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      overflow: hidden;
+    #logout-btn {
+      background: transparent; border: 1px solid var(--border); color: var(--muted);
+      border-radius: 6px; padding: 6px 12px; font-family: 'DM Mono', monospace;
+      font-size: 11px; cursor: pointer;
     }
+    #logout-btn:hover { border-color: var(--red); color: var(--red); }
+
+    .section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
     .section-header {
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
-      font-family: 'DM Mono', monospace;
-      font-size: 11px;
-      color: var(--green);
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+      font-family: 'DM Mono', monospace; font-size: 11px; color: var(--green);
+      letter-spacing: 0.06em; text-transform: uppercase;
+      display: flex; justify-content: space-between; align-items: center;
     }
 
-    /* ── REP TABLE ── */
-    .rep-table { width: 100%; }
     .rep-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr auto;
-      gap: 12px;
-      align-items: center;
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--border);
+      display: grid; grid-template-columns: 1.4fr 1.6fr 1fr 0.8fr;
+      gap: 12px; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--border);
     }
     .rep-row:last-child { border-bottom: none; }
     .rep-row.header {
-      font-family: 'DM Mono', monospace;
-      font-size: 10px;
-      color: var(--muted);
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      padding-top: 10px;
-      padding-bottom: 10px;
+      font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted);
+      letter-spacing: 0.06em; text-transform: uppercase;
     }
     .rep-name { font-weight: 600; font-size: 14px; }
     .rep-email, .rep-phone { font-size: 13px; color: var(--muted); }
-    .rep-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .rep-role {
+      font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase;
+      letter-spacing: 0.05em; padding: 3px 8px; border-radius: 20px; justify-self: start;
+    }
+    .rep-role.admin { background: rgba(184,240,74,0.12); color: var(--green); border: 1px solid rgba(184,240,74,0.25); }
+    .rep-role.salesperson { background: rgba(107,109,98,0.15); color: var(--muted); border: 1px solid var(--border); }
+    .empty-reps { padding: 28px 20px; text-align: center; color: var(--muted); font-size: 14px; }
 
-    .btn-icon {
-      background: none;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 5px 10px;
-      font-size: 11px;
-      font-family: 'DM Mono', monospace;
-      cursor: pointer;
-      color: var(--muted);
-      transition: all 0.15s;
+    .rep-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 20px; }
+    .rep-form input, .rep-form select {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 12px; color: var(--text); font-family: 'DM Sans', sans-serif;
+      font-size: 13px; outline: none; width: 100%;
     }
-    .btn-icon:hover { border-color: var(--green); color: var(--green); }
-    .btn-icon.del:hover { border-color: var(--red); color: var(--red); }
-
-    .empty-reps {
-      padding: 32px 20px;
-      text-align: center;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    /* ── ADD / EDIT FORM ── */
-    .rep-form {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 12px;
-      padding: 20px;
-    }
-    .rep-form input {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 12px;
-      color: var(--text);
-      font-family: 'DM Sans', sans-serif;
-      font-size: 13px;
-      outline: none;
-      width: 100%;
-    }
-    .rep-form input:focus { border-color: var(--green); }
+    .rep-form input:focus, .rep-form select:focus { border-color: var(--green); }
     .rep-form input::placeholder { color: var(--muted); }
-    .form-actions {
-      grid-column: 1 / -1;
-      display: flex;
-      gap: 10px;
-    }
-
+    .form-actions { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; }
     .btn {
-      padding: 10px 20px;
-      border-radius: 8px;
-      font-family: 'DM Mono', monospace;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      border: none;
-      transition: all 0.15s;
+      padding: 10px 20px; border-radius: 8px; font-family: 'DM Mono', monospace;
+      font-size: 12px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s;
     }
-    .btn-primary {
-      background: var(--green);
-      color: #0e0f0d;
-    }
-    .btn-primary:hover { background: var(--green-dim); }
-    .btn-secondary {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--muted);
-    }
-    .btn-secondary:hover { border-color: var(--muted); color: var(--text); }
-
-    /* ── SETTINGS ── */
-    .pin-form {
-      display: flex;
-      gap: 12px;
-      padding: 20px;
-      align-items: flex-end;
-    }
-    .pin-form input {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 12px;
-      color: var(--text);
-      font-family: 'DM Mono', monospace;
-      font-size: 16px;
-      letter-spacing: 0.2em;
-      width: 140px;
-      outline: none;
-    }
-    .pin-form input:focus { border-color: var(--green); }
-    .pin-msg { font-size: 12px; color: var(--green); min-height: 16px; }
-
-    /* ── TOAST ── */
-    #toast {
-      position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%) translateY(80px);
-      background: var(--green);
-      color: #0e0f0d;
-      font-family: 'DM Mono', monospace;
-      font-size: 12px;
-      padding: 10px 20px;
-      border-radius: 8px;
-      transition: transform 0.25s ease;
-      pointer-events: none;
-    }
-    #toast.show { transform: translateX(-50%) translateY(0); }
+    .btn-primary { background: var(--green); color: var(--bg); }
+    .btn-primary:hover { background: #ceff5e; }
+    .btn-primary:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+    .form-msg { font-size: 12px; min-height: 16px; }
+    .form-msg.ok { color: var(--green); }
+    .form-msg.err { color: var(--red); }
+    .hint { font-size: 12px; color: var(--muted); padding: 0 20px 18px; line-height: 1.5; }
   </style>
 </head>
 <body>
 
-<!-- PIN SCREEN -->
-<div id="pin-screen">
-  <div class="logo">OZ-XPRESS × FOXINGREEN<span>Back Office</span></div>
-  <h2>Enter PIN</h2>
-  <input id="pin-input" type="password" inputmode="numeric" maxlength="6" placeholder="••••" autocomplete="off" />
-  <div id="pin-error"></div>
-  <button class="btn btn-primary" style="width:100%" onclick="checkPin()">Unlock</button>
-</div>
+<div id="auth-gate"><div class="spinner"></div> Checking login…</div>
 
-<!-- MAIN APP -->
 <div id="app">
   <div class="top-bar">
-    <div class="logo">OZ-XPRESS × FOXINGREEN<span>Back Office — Sales Reps</span></div>
-    <a href="index.html">← Route Builder</a>
+    <div class="logo">OZ-XPRESS × FOXINGREEN<span>Back Office</span></div>
+    <div class="right">
+      <a href="index.html">← Route Builder</a>
+      <span id="who" style="font-size:13px;color:var(--text);"></span>
+      <button id="logout-btn" onclick="ozAuth.signOut()">Log out</button>
+    </div>
   </div>
 
-  <!-- Rep List -->
+  <!-- Sales Reps -->
   <div class="section">
-    <div class="section-header">Sales Reps</div>
-    <div id="rep-list"></div>
+    <div class="section-header">Sales Reps <span id="rep-count" style="color:var(--muted)"></span></div>
+    <div id="rep-list"><div class="empty-reps">Loading…</div></div>
   </div>
 
-  <!-- Add / Edit Rep -->
-  <div class="section" id="form-section">
-    <div class="section-header" id="form-title">Add New Rep</div>
+  <!-- Add Rep -->
+  <div class="section">
+    <div class="section-header">Add New Rep</div>
     <div class="rep-form">
       <input id="f-name"  type="text"  placeholder="Full name" />
-      <input id="f-email" type="email" placeholder="Email address" />
+      <input id="f-email" type="email" placeholder="Email address" autocomplete="off" />
       <input id="f-phone" type="tel"   placeholder="Phone number" />
+      <input id="f-pass"  type="text"  placeholder="Temporary password" autocomplete="off" />
+      <select id="f-role">
+        <option value="salesperson">Salesperson</option>
+        <option value="admin">Admin</option>
+      </select>
       <div class="form-actions">
-        <button class="btn btn-primary" onclick="saveRep()">Save Rep</button>
-        <button class="btn btn-secondary" id="cancel-btn" style="display:none" onclick="cancelEdit()">Cancel</button>
+        <button class="btn btn-primary" id="add-btn" onclick="addRep()">Create Rep</button>
+        <span class="form-msg" id="add-msg"></span>
       </div>
     </div>
-  </div>
-
-  <!-- Change PIN -->
-  <div class="section">
-    <div class="section-header">Settings — Change PIN</div>
-    <div class="pin-form">
-      <input id="new-pin" type="password" inputmode="numeric" maxlength="6" placeholder="New PIN" autocomplete="off" />
-      <button class="btn btn-primary" onclick="changePin()">Update PIN</button>
-    </div>
-    <div class="pin-msg" id="pin-msg" style="padding:0 20px 16px"></div>
+    <div class="hint">The rep logs in at the same sign-in page with this email + temporary password. They can change their password later.</div>
   </div>
 </div>
 
-<div id="toast">Saved</div>
-
 <script>
-  const STORAGE_KEY = 'ozxpress_reps';
-  const PIN_KEY     = 'ozxpress_pin';
-  const SESSION_KEY = 'ozxpress_admin_auth';
-  const DEFAULT_PIN = '1234';
+  let me = null;
 
-  let editingId = null;
-
-  // ── PIN AUTH ──────────────────────────────────────────────────────────────
-  function getPin() {
-    return localStorage.getItem(PIN_KEY) || DEFAULT_PIN;
-  }
-
-  function checkPin() {
-    const entered = document.getElementById('pin-input').value.trim();
-    if (entered === getPin()) {
-      sessionStorage.setItem(SESSION_KEY, '1');
-      document.getElementById('pin-screen').style.display = 'none';
-      document.getElementById('app').classList.add('visible');
-      document.body.style.alignItems = 'flex-start';
-      renderReps();
-    } else {
-      document.getElementById('pin-error').textContent = 'Incorrect PIN — try again.';
-      document.getElementById('pin-input').value = '';
-    }
-  }
-
-  document.getElementById('pin-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') checkPin();
-  });
-
-  // auto-unlock if already authenticated this session
-  if (sessionStorage.getItem(SESSION_KEY)) {
-    document.getElementById('pin-screen').style.display = 'none';
+  // ── gate: admins only ──
+  (async function () {
+    me = await ozAuth.requireAuth('admin');
+    if (!me) return;                       // redirected (login or index)
+    document.getElementById('who').textContent = me.name;
+    document.getElementById('auth-gate').remove();
     document.getElementById('app').classList.add('visible');
     document.body.style.alignItems = 'flex-start';
+    loadReps();
+  })();
+
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  // ── DATA ─────────────────────────────────────────────────────────────────
-  function getReps() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
-    catch { return []; }
-  }
-
-  function saveReps(reps) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(reps));
-  }
-
-  // ── RENDER ───────────────────────────────────────────────────────────────
-  function renderReps() {
-    const reps = getReps();
+  async function loadReps() {
     const container = document.getElementById('rep-list');
-
-    if (reps.length === 0) {
+    const { data, error } = await ozAuth.client
+      .from('reps').select('*').order('role').order('name');
+    if (error) {
+      container.innerHTML = `<div class="empty-reps" style="color:var(--red)">Error loading reps: ${esc(error.message)}</div>`;
+      return;
+    }
+    document.getElementById('rep-count').textContent = data.length ? `(${data.length})` : '';
+    if (!data.length) {
       container.innerHTML = '<div class="empty-reps">No reps yet — add one below.</div>';
       return;
     }
-
     container.innerHTML = `
-      <div class="rep-row header">
-        <div>Name</div><div>Email</div><div>Phone</div><div></div>
-      </div>
-      ${reps.map(r => `
-        <div class="rep-row" id="row-${r.id}">
+      <div class="rep-row header"><div>Name</div><div>Email</div><div>Phone</div><div>Role</div></div>
+      ${data.map(r => `
+        <div class="rep-row">
           <div class="rep-name">${esc(r.name)}</div>
           <div class="rep-email">${esc(r.email)}</div>
-          <div class="rep-phone">${esc(r.phone)}</div>
-          <div class="rep-actions">
-            <button class="btn-icon" onclick="editRep('${r.id}')">Edit</button>
-            <button class="btn-icon del" onclick="deleteRep('${r.id}')">Delete</button>
-          </div>
+          <div class="rep-phone">${esc(r.phone) || '—'}</div>
+          <div class="rep-role ${r.role === 'admin' ? 'admin' : 'salesperson'}">${esc(r.role)}</div>
         </div>
       `).join('')}
     `;
   }
 
-  function esc(str) {
-    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-
-  // ── CRUD ─────────────────────────────────────────────────────────────────
-  function saveRep() {
+  async function addRep() {
     const name  = document.getElementById('f-name').value.trim();
     const email = document.getElementById('f-email').value.trim();
     const phone = document.getElementById('f-phone').value.trim();
+    const pass  = document.getElementById('f-pass').value;
+    const role  = document.getElementById('f-role').value;
+    const msg   = document.getElementById('add-msg');
+    const btn   = document.getElementById('add-btn');
 
-    if (!name) { document.getElementById('f-name').focus(); return; }
+    msg.className = 'form-msg';
+    if (!name || !email || !pass) { msg.className = 'form-msg err'; msg.textContent = 'Name, email and temporary password are required.'; return; }
 
-    const reps = getReps();
+    btn.disabled = true; msg.textContent = 'Creating…';
+    try {
+      const session = await ozAuth.getSession();
+      const res = await fetch('/.netlify/functions/create-rep', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+        body: JSON.stringify({ name, email, phone, password: pass, role })
+      });
+      const out = await res.json();
+      if (!res.ok) throw new Error(out.error || `HTTP ${res.status}`);
 
-    if (editingId) {
-      const idx = reps.findIndex(r => r.id === editingId);
-      if (idx !== -1) reps[idx] = { ...reps[idx], name, email, phone };
-      editingId = null;
-    } else {
-      reps.push({ id: Date.now().toString(), name, email, phone });
+      msg.className = 'form-msg ok'; msg.textContent = `Created ${name}.`;
+      ['f-name','f-email','f-phone','f-pass'].forEach(id => document.getElementById(id).value = '');
+      loadReps();
+    } catch (err) {
+      msg.className = 'form-msg err'; msg.textContent = err.message;
+    } finally {
+      btn.disabled = false;
     }
-
-    saveReps(reps);
-    clearForm();
-    renderReps();
-    showToast('Rep saved');
   }
-
-  function editRep(id) {
-    const rep = getReps().find(r => r.id === id);
-    if (!rep) return;
-    editingId = id;
-    document.getElementById('f-name').value  = rep.name;
-    document.getElementById('f-email').value = rep.email;
-    document.getElementById('f-phone').value = rep.phone;
-    document.getElementById('form-title').textContent = 'Edit Rep';
-    document.getElementById('cancel-btn').style.display = 'inline-block';
-    document.getElementById('f-name').focus();
-    document.getElementById('form-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-
-  function deleteRep(id) {
-    if (!confirm('Delete this rep?')) return;
-    const reps = getReps().filter(r => r.id !== id);
-    saveReps(reps);
-    renderReps();
-    showToast('Rep deleted');
-  }
-
-  function cancelEdit() {
-    editingId = null;
-    clearForm();
-  }
-
-  function clearForm() {
-    document.getElementById('f-name').value  = '';
-    document.getElementById('f-email').value = '';
-    document.getElementById('f-phone').value = '';
-    document.getElementById('form-title').textContent = 'Add New Rep';
-    document.getElementById('cancel-btn').style.display = 'none';
-  }
-
-  // ── CHANGE PIN ────────────────────────────────────────────────────────────
-  function changePin() {
-    const np = document.getElementById('new-pin').value.trim();
-    if (np.length < 4) {
-      document.getElementById('pin-msg').textContent = 'PIN must be at least 4 digits.';
-      return;
-    }
-    localStorage.setItem(PIN_KEY, np);
-    document.getElementById('new-pin').value = '';
-    document.getElementById('pin-msg').textContent = 'PIN updated successfully.';
-    setTimeout(() => document.getElementById('pin-msg').textContent = '', 3000);
-  }
-
-  // ── TOAST ─────────────────────────────────────────────────────────────────
-  function showToast(msg) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2000);
-  }
-
-  // ── INIT ──────────────────────────────────────────────────────────────────
-  if (sessionStorage.getItem(SESSION_KEY)) renderReps();
 </script>
 </body>
 </html>

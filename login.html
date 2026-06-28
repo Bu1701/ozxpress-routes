@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>oz-xpress — Sign In</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0e0f0d; --surface: #161713; --border: #252620;
+      --green: #b8f04a; --green-dim: #8ab535; --text: #e8e9e2;
+      --muted: #6b6d62; --red: #f04a4a;
+    }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    }
+    #card {
+      width: 360px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 12px;
+      padding: 40px 32px; display: flex; flex-direction: column; gap: 22px;
+    }
+    .logo {
+      font-family: 'DM Mono', monospace; font-size: 12px; color: var(--green);
+      letter-spacing: 0.08em; text-transform: uppercase; text-align: center; line-height: 1.6;
+    }
+    .logo span { display: block; color: var(--muted); font-size: 11px; }
+    h2 { font-size: 18px; font-weight: 700; text-align: center; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    label {
+      font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    input {
+      background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      font-family: 'DM Sans', sans-serif; font-size: 14px;
+      padding: 11px 13px; border-radius: 8px; outline: none; width: 100%;
+    }
+    input:focus { border-color: var(--green); }
+    input::placeholder { color: var(--muted); }
+    button {
+      background: var(--green); color: var(--bg); border: none; border-radius: 8px;
+      padding: 12px; font-family: 'DM Sans', sans-serif; font-size: 14px;
+      font-weight: 700; cursor: pointer; transition: background 0.15s;
+    }
+    button:hover { background: #ceff5e; }
+    button:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+    #err { color: var(--red); font-size: 13px; min-height: 18px; text-align: center; }
+  </style>
+</head>
+<body>
+  <form id="card" onsubmit="return doLogin(event)">
+    <div class="logo">oz-xpress × FOXinGREEN<span>Route Organizer</span></div>
+    <h2>Sign In</h2>
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="username" placeholder="you@ozxpress.com" required />
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required />
+    </div>
+    <div id="err"></div>
+    <button id="btn" type="submit">Sign In</button>
+  </form>
+
+  <script>
+    // if already logged in, skip straight to the right page
+    (async function () {
+      const profile = await ozAuth.getMyProfile();
+      if (profile) location.href = profile.role === 'admin' ? 'admin.html' : 'index.html';
+    })();
+
+    async function doLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn');
+      const err = document.getElementById('err');
+      err.textContent = '';
+      btn.disabled = true; btn.textContent = 'Signing in…';
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      const { error } = await ozAuth.signIn(email, password);
+      if (error) {
+        err.textContent = error.message || 'Sign in failed.';
+        btn.disabled = false; btn.textContent = 'Sign In';
+        return false;
+      }
+      const profile = await ozAuth.getMyProfile();
+      location.href = (profile && profile.role === 'admin') ? 'admin.html' : 'index.html';
+      return false;
+    }
+  </script>
+</body>
+</html>

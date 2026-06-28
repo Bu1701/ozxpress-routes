@@ -11,8 +11,17 @@ Single-page app that uses the Anthropic Claude API (via a Netlify function proxy
 | Netlify Site | ozxpress-routes.netlify.app |
 | GitHub Repo | https://github.com/leifenberg/foxb2b |
 | Netlify Account | mike-dtt479k's team |
+| Supabase Project | Ozxpress-routes (ref `bxlpoxqckfrikvjhbcju`, us-east-1, GL&S org) |
 
 Deploys automatically from GitHub (master branch).
+
+## Supabase Backend (added 2026-06-28)
+- **URL:** `https://bxlpoxqckfrikvjhbcju.supabase.co`
+- **anon key:** `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4bHBveHFja2ZyaWt2amhiY2p1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2ODEyMzgsImV4cCI6MjA5ODI1NzIzOH0.Jrcxy3J-BL3hOat5fzPoq-XHYYJABgRhjhOQDCBILjw` (public, RLS-protected, safe to commit)
+- **service_role / secret key:** held by Mike — goes into Netlify env vars only (NEVER in client code). Needed when we build server-side rep creation + email functions.
+- Schema lives in `db-schema.sql` (run via Supabase SQL Editor). Tables: `reps`, `businesses`, `appointments`, `routes`.
+- Auth: Supabase Auth email+password. Roles: `admin` vs `salesperson` (stored on `reps.role`). RLS enforces per-rep data isolation; admin sees all.
+- NOTE: `claude.js` already uses a server-side `ANTHROPIC_API_KEY` env var — salespeople do NOT need their own API key.
 
 ## Folder Structure
 ```
