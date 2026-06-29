@@ -59,13 +59,25 @@ Upper East Side, Upper West Side, Midtown, Harlem, Washington Heights,
 TriBeCa/Financial District, East Village/Alphabet City, West Village/Greenwich Village
 
 ## Sales Reps
-Rep 1–5 (placeholder names — to be updated with real names)
+Reps are now managed in Supabase (the `reps` table) via the Back Office (admin.html), not placeholder names. Auth-backed (each rep is a Supabase auth user). Old localStorage rep system is removed.
 
-## Open Items
-- 🟡 Replace Rep 1–5 with real sales rep names
-- 🟡 Add "Copy route" / export to PDF or email feature
-- 🟡 Add map view of the route stops
-- 🟡 Persist generated routes (localStorage or Supabase)
+## Multi-User Build — Phase Status (started 2026-06-28)
+Turning the app into a multi-user system: per-salesperson logins, territory ownership, back office, email. 4 phases.
+
+- ✅ **Phase 1 — Auth foundation: DONE + LIVE (2026-06-28, commit 7d43a40).**
+  login.html (sign-in) → routes admin to admin.html, salesperson to index.html. supabase-client.js = shared auth (`requireAuth`, `signIn`, `signOut`). index.html gated; salesperson locked to own identity (no rep picker), admin picks any rep; identity + logout in sidebar. admin.html rebuilt as Back Office (admin-only): lists reps from Supabase + Add Rep form. create-rep.js Netlify function = admin-verified server-side user creation. Admin login = **mike@foxingreen.com**.
+  - ⏳ **LAST STEP TO FINISH PHASE 1:** set env var `SUPABASE_SERVICE_KEY` (= Supabase service_role secret) on the Netlify ozxpress-routes site, then redeploy. Until then "Add Rep" errors with "Server not configured…" (by design — function degrades gracefully). After setting it: create a test salesperson + verify the salesperson login path.
+- ⬜ **Phase 2 — Territory ownership:** generating a route saves the businesses to `businesses` table stamped `claimed_by` = the rep; other reps never see claimed spots in that neighborhood; dedup against existing claims. LOCKED RULE: claimed on GENERATE; admin releases unvisited ones back.
+- ⬜ **Phase 3 — Back office dashboard:** admin sees all reps + all appointments/visits + who owns what; reassign/release.
+- ⬜ **Phase 4 — Business info + email:** reps add notes/contacts per business; email businesses (Netlify function + SendGrid).
+
+Full plan + decisions in the [[project_ozxpress_backend]] memory.
+
+## Older Open Items
+- 🟢 Replace Rep 1–5 — DONE (reps now in Supabase via Back Office)
+- 🟢 Copy route — DONE (Copy Route button shipped earlier)
+- 🟢 Map view — DONE (walking directions + numbered markers)
+- 🟡 Persist generated routes — folds into Phase 2 (routes table exists)
 - 🟡 Custom domain setup
 
 ## Git Workflow (Standing Rules)
